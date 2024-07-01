@@ -103,7 +103,7 @@ func (n NetworkUtils) CheckAndRepairNetwork(nic *rpc.HostNic) (rpc.Phase, error)
 		}
 
 		//describe nic to get status; if can be attached, then attach it to this node;
-		klog.Infof("nic %s was not found, try to attach it again", nic.HardwareAddr)
+		klog.Infof("nic %s was not found, try to attach it", nic.HardwareAddr)
 		nicCur, err := qcclient.QClient.GetNics([]string{nic.ID})
 		if err != nil {
 			return rpc.Phase_Init, fmt.Errorf("failed to get nic %s from api: %v", nic.ID, err)
