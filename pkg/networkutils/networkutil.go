@@ -13,6 +13,7 @@ import (
 	"github.com/insomniacslk/dhcp/netboot"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"k8s.io/klog/v2"
 
 	"github.com/yunify/hostnic-cni/pkg/constants"
 	"github.com/yunify/hostnic-cni/pkg/qcclient"
@@ -86,6 +87,7 @@ func (n NetworkUtils) SetupNetwork(nic *rpc.HostNic) (rpc.Phase, error) {
 		}
 	} else {
 		// do nothing: nic has attached and bridge is ready
+		// hostnic_todo: should check if ip is ready for hostnic br or do this in the ip addr new timer
 	}
 
 	return rpc.Phase_Succeeded, nil
@@ -96,7 +98,28 @@ func (n NetworkUtils) CheckAndRepairNetwork(nic *rpc.HostNic) (rpc.Phase, error)
 	brName := constants.GetHostNicBridgeName(int(nic.RouteTableNum))
 	master, slave, err := n.getLinksByMacAddr(nic.HardwareAddr)
 	if master == nil && slave == nil {
-		return rpc.Phase_Init, fmt.Errorf("failed to get link %s: %v %v %v", nic.HardwareAddr, master, slave, err)
+		if err != nil && err != constants.ErrNicNotFound {
+			return rpc.Phase_Init, fmt.Errorf("failed to get link %s: %v %v %v", nic.HardwareAddr, master, slave, err)
+		}
+
+		//describe nic to get status; if can be attached, then attach it to this node;
+		klog.Infof("nic %s was not found, try to attach it again", nic.HardwareAddr)
+		nicCur, err := qcclient.QClient.GetNics([]string{nic.ID})
+		if err != nil {
+			return rpc.Phase_Init, fmt.Errorf("failed to get nic %s from api: %v", nic.ID, err)
+		}
+		if nicCur[nic.ID].Using {
+			return rpc.Phase_Init, fmt.Errorf("nic %s status is in-use", nic.ID)
+		}
+
+		//attach nic
+		klog.Infof("waiting for nic %s attach finished", nic.ID)
+		_, err = qcclient.QClient.AttachNics([]string{nic.ID}, true)
+		if err != nil {
+			return rpc.Phase_Init, fmt.Errorf("attach nic %s error: %v", nic.ID, err)
+		}
+
+		klog.Infof("attach nic %s success", nic.ID)
 	}
 
 	if slave == nil {
@@ -310,6 +333,10 @@ func (n NetworkUtils) getLinksByMacAddr(macAddr string) (netlink.Link, netlink.L
 				master = link
 			}
 		}
+	}
+	// attention: br has the same mac addr with hostnic link
+	if master == nil && slave == nil {
+		return nil, nil, constants.ErrNicNotFound
 	}
 	return master, slave, nil
 }
