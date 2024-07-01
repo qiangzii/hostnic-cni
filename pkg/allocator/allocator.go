@@ -286,7 +286,15 @@ func (a *Allocator) HostNicCheck() {
 
 	for _, nic := range a.nics {
 		nicKey := getNicKey(nic.Nic)
-		if !nic.isOK() {
+
+		exists := true
+		_, err := networkutils.NetworkHelper.LinkByMacAddr(nic.Nic.ID)
+		if err == constants.ErrNicNotFound {
+			exists = false
+		}
+
+		if !nic.isOK() || !exists {
+			log.Infof("hostNic %s status: %s , exists: %t, try to repair it", nicKey, nic.getPhase(), exists)
 			phase, err := networkutils.NetworkHelper.CheckAndRepairNetwork(nic.Nic)
 			if err := a.setNicStatus(nic.Nic, phase); err != nil {
 				log.Errorf("setNicStatus failed: %s %s %v", nicKey, phase.String(), err)

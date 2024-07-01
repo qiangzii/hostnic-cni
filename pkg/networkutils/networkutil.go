@@ -120,6 +120,11 @@ func (n NetworkUtils) CheckAndRepairNetwork(nic *rpc.HostNic) (rpc.Phase, error)
 		}
 
 		klog.Infof("attach nic %s success", nic.ID)
+
+		slave, err = n.LinkByMacAddr(nic.ID)
+		if err != nil {
+			return rpc.Phase_Init, fmt.Errorf("failed to get nic %s after attach", nic.ID)
+		}
 	}
 
 	if slave == nil {
