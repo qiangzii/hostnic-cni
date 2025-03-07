@@ -136,25 +136,39 @@ func main() {
 		}
 		fmt.Printf("\nBroken blocks for each ippool:\n")
 		for _, ippool := range utils {
+			if len(ippool.BrokenBlocks) == 0 {
+				continue
+			}
+
 			fmt.Printf("\t%s: %v\n", ippool.Name, ippool.BrokenBlockNames)
 			if debug {
 				// print debug msg
 				for _, block := range ippool.BrokenBlocks {
+					fmt.Println("\tblock:", block.Name)
+					printTitle := true
 					for ipStr, podNames := range block.IpToPods {
 						if len(podNames) > 1 {
+							if printTitle {
+								fmt.Println("\t\tip was allocated to multiple pods:")
+								printTitle = false
+							}
 							fmt.Printf("\t\tip %s was allocated more than once to pods %v\n", ipStr, podNames)
 						}
 					}
 
-					for ipStr, podNames := range block.IpWithoutRecord {
-						fmt.Printf("\t\tip %s was allocated to pods %v, but not record in ipamblock\n", ipStr, podNames)
+					if len(block.IpNotAllocExistsPod) > 0 {
+						fmt.Println("\t\tip was allocated to pod, but not record in ipamblock:")
+						for ipStr, podNames := range block.IpNotAllocExistsPod {
+							fmt.Printf("\t\tip %s was allocated to pods %v, but not record in ipamblock\n", ipStr, podNames)
+						}
 					}
 
-					// for ipStr, podNames := range block.IpToPodsWithWrongRecord {
-					// 	if len(podNames) == 1 {
-					// 		fmt.Printf("\t\tip %s was recorded to wrong pods %v\n", ipStr, podNames)
-					// 	}
-					// }
+					if len(block.IpAllocNotExistsPod) > 0 {
+						fmt.Println("\t\tip was allocated in ipamblock, but pod not exists:")
+						for ipStr, podName := range block.IpAllocNotExistsPod {
+							fmt.Printf("\t\tip %s was allocated in ipamblock, but pod %s not exists\n", ipStr, podName)
+						}
+					}
 				}
 			}
 			if fixBrokenBlocks {

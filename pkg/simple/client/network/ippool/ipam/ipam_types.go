@@ -103,9 +103,10 @@ type BrokenBlockUtilization struct {
 	// This block's name.
 	Name string
 
-	IpToPods                map[string][]string
-	IpWithoutRecord         map[string][]string // maybe allocated to more than one pod
-	IpToPodsWithWrongRecord map[string][]string
+	IpToPods            map[string][]string //key:ip value:podname list
+	IpNotAllocExistsPod map[string]string   //ip used by pod, but not record in ipamblock; key:ip value:podname
+	IpAllocNotExistsPod map[string]string   //have allocated in ipamblock but pod not exist; key:ip value:podname
+
 }
 
 // FixIpArgs assign from config annotation
